@@ -23,3 +23,5 @@ twoway ///
     ytitle("Price (USD)") ///
     legend(order(1 "Domestic" 2 "Foreign" 3 "Overall linear fit") position(6) rows(1)) ///
     graphregion(color(white))
+
+*End of script
