@@ -21,13 +21,110 @@ use "$master/viv_hog_pob_cpv_2022.dta"
 * Add variable labels and value labels
 tab periodo
 tab1 p15aa p15ab
+*** 0. Variable checks
+tab p03
+//recode p03 99 = . // pero hay 6 casos que tienen info de empleo
 
-gen nac=1 if inlist(p15aa,1,2)
+sum p63 p66 p68b p69 p71b p72b p73b p74b ingrl ingpc
+recode ingrl  -1 999999 9999999 = .
+
+tab1 empleo desempleo secemp grupo1 rama1 nnivins dominio
+
+*** 1. Generate variables 
+
+// 1.1 Demographic
+* Country of birth
+gen 	nac = 1 if inlist(p15aa,1,2)
 replace nac = 2 if p15aa==3 & p15ab==170
 replace nac = 3 if p15aa==3 & p15ab==862
 replace nac = 4 if p15aa==3 & nac==.
+lab def nac 1 Ecuador 2 Colombia 3 Venezuela 4 Otro
+lab val nac nac
+
 tab year nac
 tab year nac [iw=fexp]
+
+// 1.2 Labor market
+
+* Working-age
+gen 	pet = 0 
+replace pet = 1 if condact > 0 
+lab var pet "Working-age population 15+"
+
+* Labor force
+gen 	pea = 0 if pet==1 
+replace pea = 1 if pet==1 & condact > 0 & condact < 9
+lab var pea "People in labor force"
+
+* Out of labor force 
+gen 	pei = 0 if pet==1 
+replace pei = 1 if pet==1 & condact == 9
+lab var pei "People out of labor force (inactive)"
+
+* Employed (generadas sobre la pet pero podemos cambiar a la pea)
+gen		employed = 0 if pet==1
+replace employed = 1 if inrange(condact,1,6)
+lab var employed "Employment"
+
+* Unemployed (generadas sobre la pet pero podemos cambiar a la pea)
+gen		unemployed = 0 if pet==1
+replace unemployed = 1 if inrange(condact,7,8)
+lab var unemployed "Unemployment"
+
+* Status in employment
+recode 	p42 (1=1) (2/4 10=2) (5/6=3) (7/9=4) if employed==1, gen(job_status)
+recode 	p54 (1=1) (2/4 10=2) (5/6=3) (7/9=4) if employed==1, gen(job_status2)
+lab var job_status "Status in employment"
+lab var job_status2 "Status in employment 2nd emp"
+lab def job_s 1 "government" 2 "salaried" 3 "self-employed" 4 "unpaid" , replace
+lab val job_status job_status2 job_s
+
+* Informal sector (inec)
+gen		infsec = 0 if secemp == 1 & employed==1
+replace infsec = 1 if secemp == 2 & employed==1
+replace infsec = 2 if secemp >=3 & secemp !=. & employed==1 
+lab var infsec "Informal sector (inec)"
+lab def infsec 0 "Formal" 1 "Informal" 2 "Other", modify
+lab val infsec infsec
+
+* Informality (social security definitions)
+
+	* Derecho a jubilación (variable SEDLAC)
+	gen	    djubila = 0 if  p44f==2 | (p05a>=1 & p05a<=10) | (p05b>=1 & p05b<=10) 
+	replace djubila = 1	if  p44f==1
+	replace djubila = 1 if (p05a>=1 & p05a<=4) | (p05b>=1 & p05b<=4)
+	replace djubila = . if  employed!=1
+
+	* cotizacion a la seguridad social 
+	gen     informal_e = 1 if employed ==1
+	replace informal_e = 0 if employed ==1 & (inrange(p05a,1,4) | inrange(p05b,1,4))
+	replace informal_e = 1 if job_status ==4 /*Ayudante no remunerado es informal */
+	replace informal_e = 0 if job_status ==1 /*Ningun government es informal*/
+	*replace informal_e = 1 if informal_s  ==2 & job_status ==3 /*Ningun self-employment sin RUC puede ser formal*/
+
+* Economic sector
+recode rama1 (1/2 =1) (3/6=2) (7/21=3) (22=.) if employed==1, gen(empsector)
+label def empsector ///
+1 "agriculture"   ///
+2 "industry" ///
+3 "services" ,replace
+label values empsector empsector
+
+* Grouped industry
+recode rama1 (1/2 =1)(7=2)(3=3)(6=4)(4/5 8/21=5) if employed==1, gen(industry)
+label def ind ///
+1 "agriculture" ///
+2 "trade" ///
+3 "industry" ///
+4 "construction" ///
+5 "services", replace
+label values industry ind
+
+* Number of jobs
+gen     njobs = .
+replace njobs = 1	if  employed==1
+replace njobs = 2	if  employed==1 & p50==2
+replace njobs = 3	if  employed==1 & p50==2 & p51c>0 & p51c<.
 
 
 qui {
