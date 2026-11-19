@@ -10,42 +10,151 @@
 clear all
 *set dp comma 
 set more off 
-global master "/Users/Library/CloudStorage/OneDrive-Personal/Documentos/Banco Mundial/Migracion_cpv2022/Bases"
-global graficos "/UsersLibrary/CloudStorage/OneDrive-Personal/Documentos/Banco Mundial/Migracion_cpv2022/Graficos"
-global mapas "/Users/Library/CloudStorage/OneDrive-Personal/Documentos/Banco Mundial/Migracion_cpv2022/SHP"
+global data "C:/Users/andre/OneDrive/Data"
+global graficos "C:/Users/andre/Documents/Consultoria/Desplazamiento JDC 2026/3. Outputs"
 
 *** Load Data
-use "$master/viv_hog_pob_cpv_2022.dta"
+use "$data/0_enemdu2018_2025.dta"
 
-** Label data
-* Add variable labels and value labels
-tab periodo
-tab1 p15aa p15ab
 *** 0. Variable checks
-tab p03
-//recode p03 99 = . // pero hay 6 casos que tienen info de empleo
-
 sum p63 p66 p68b p69 p71b p72b p73b p74b ingrl ingpc
-recode ingrl  -1 999999 9999999 = .
-
-tab1 empleo desempleo secemp grupo1 rama1 nnivins dominio
+recode ingrl  -1 999999 9999999  = .
+tab1 empleo desempleo secemp grupo1 rama1 nnivins dominio 
 
 *** 1. Generate variables 
+// 1.1 Demographic characteristics
 
-// 1.1 Demographic
+* Sex
+gen     female = .
+replace female = 0 if p02 == 1
+replace female = 1 if p02 == 2
+label variable female "Female"
+label define female 0 "Male" 1 "Female", replace
+label values female female
+
+* Age
+* p03 = 98 means 98 years or older, 99 means no information
+// hay 6 casos que tienen info de empleo
+gen age = p03 if inrange(p03,15,98)
+replace age = . if p03 == 99
+gen age_sq = age^2 if !missing(age)
+label variable age    "Age in years"
+label variable age_sq "Age squared"
+
+* Relationship to the household head
+gen     household_head = .
+replace household_head = 0 if inrange(p04,2,9)
+replace household_head = 1 if p04 == 1
+label variable household_head "Household head"
+label define household_head 0 "Not household head" 1 "Household head", replace
+label values household_head household_head
+
+* Marital status
+gen     marital_status = .
+replace marital_status = 1 if inlist(p06,1,5)
+replace marital_status = 2 if inlist(p06,2,3,4)
+replace marital_status = 3 if p06 == 6
+label variable marital_status "Marital status"
+label define marital_status                                  ///
+    1 "Married or cohabiting"                            ///
+    2 "Separated, divorced, or widowed"                  ///
+    3 "Single", replace
+label values marital_status marital_status
+
+* Binary version of marital status
+gen partnered = (marital_status == 1) if !missing(marital_status)
+label variable partnered "Married or cohabiting"
+label define partnered 0 "No" 1 "Yes", replace
+label values partnered partnered
+
+* Educational attainment
+* Based on ENEMDU variable nnivins:
+gen     education_level = .
+replace education_level = 0 if inlist(nnivins,1,2)
+replace education_level = 1 if nnivins == 3
+replace education_level = 2 if nnivins == 4
+replace education_level = 3 if nnivins == 5
+label variable education_level "Educational attainment"
+label define education_level                                 ///
+    0 "No schooling or literacy center"                    ///
+    1 "Basic education"                                    ///
+    2 "Secondary education or baccalaureate"               ///
+    3 "Higher education", replace
+label values education_level education_level
+
+* Ethnic self-identification
+* Afro-Ecuadorian includes: Afro-Ecuadorian, Black, and Mulatto
+gen     ethnicity = .
+replace ethnicity = 1 if p15 == 1
+replace ethnicity = 2 if inrange(p15,2,4)
+replace ethnicity = 3 if p15 == 5
+replace ethnicity = 4 if p15 == 6
+replace ethnicity = 5 if inlist(p15,7,8)
+label variable ethnicity "Ethnic self-identification"
+label define ethnicity                                  ///
+    1 "Indigenous"                                         ///
+    2 "Afroecuadorian"                                    ///
+    3 "Montubio"                                           ///
+    4 "Mestizo"                                            ///
+    5 "White or other", replace
+label values ethnicity ethnicity
+
+* Area of residence
+gen     urban = .
+replace urban = 1 if area == 1
+replace urban = 0 if area == 2
+label variable urban "Urban area"
+label define urban 0 "Rural" 1 "Urban", replace
+label values urban urban
+
+* Natural region
+gen region = .
+replace region = 1 if inlist(prov,1,2,3,4,5,6,10,11,17,18)
+replace region = 2 if inlist(prov,7,8,9,12,13,23,24)
+replace region = 3 if inlist(prov,14,15,16,19,21,22)
+replace region = 4 if prov == 20
+replace region = 5 if prov == 90
+label variable region "Natural region"
+label define region                                     ///
+    1 "Highlands"                                          ///
+    2 "Coast"                                              ///
+    3 "Amazon"                                             ///
+    4 "Galapagos"                                          ///
+    5 "Non-delimited", replace
+label values region region
+
+* Country-of-birth group
+* p15aa:
+* 1 = Born in this city or rural parish
+* 2 = Born elsewhere in Ecuador
+* 3 = Born in another country
+gen     foreign_born = .
+replace foreign_born = 0 if inlist(p15aa,1,2)
+replace foreign_born = 1 if p15aa == 3
+label variable foreign_born "Born outside Ecuador"
+label define foreign_born                              ///
+    0 "Born in Ecuador"                                   ///
+    1 "Born outside Ecuador", replace
+label values foreign_born foreign_born
+
 * Country of birth
+* Country code: 862 = Venezuela and 170 = Colombia
 gen 	nac = 1 if inlist(p15aa,1,2)
 replace nac = 2 if p15aa==3 & p15ab==170
 replace nac = 3 if p15aa==3 & p15ab==862
 replace nac = 4 if p15aa==3 & nac==.
-lab def nac 1 Ecuador 2 Colombia 3 Venezuela 4 Otro
-lab val nac nac
+label variable nac "Country-of-birth"
+label define nac                                  ///
+    1 "Ecuador"                                   ///
+    2 "Colombia"                                 ///
+    3 "Venezuela"                                 ///
+    4 "Other foreign-born", replace
+label values nac nac
 
 tab year nac
 tab year nac [iw=fexp]
 
 // 1.2 Labor market
-
 * Working-age
 gen 	pet = 0 
 replace pet = 1 if condact > 0 
@@ -62,12 +171,12 @@ replace pei = 1 if pet==1 & condact == 9
 lab var pei "People out of labor force (inactive)"
 
 * Employed (generadas sobre la pet pero podemos cambiar a la pea)
-gen		employed = 0 if pet==1
+gen		employed = 0 if pea==1
 replace employed = 1 if inrange(condact,1,6)
 lab var employed "Employment"
 
 * Unemployed (generadas sobre la pet pero podemos cambiar a la pea)
-gen		unemployed = 0 if pet==1
+gen		unemployed = 0 if pea==1
 replace unemployed = 1 if inrange(condact,7,8)
 lab var unemployed "Unemployment"
 
@@ -104,6 +213,7 @@ lab val infsec infsec
 
 * Economic sector
 recode rama1 (1/2 =1) (3/6=2) (7/21=3) (22=.) if employed==1, gen(empsector)
+*PREGUNTAR ANITA<--recode rama1 (1 =1) (2/6=2) (7/21=3) (22=.) if employed==1, gen(empsector)
 label def empsector ///
 1 "agriculture"   ///
 2 "industry" ///
@@ -112,6 +222,7 @@ label values empsector empsector
 
 * Grouped industry
 recode rama1 (1/2 =1)(7=2)(3=3)(6=4)(4/5 8/21=5) if employed==1, gen(industry)
+*PREGUNTAR ANITA<--recode rama1 (1 =1)(7=2)(2/3=3)(6=4)(4/5 8/21=5) if employed==1, gen(industry)
 label def ind ///
 1 "agriculture" ///
 2 "trade" ///
@@ -125,6 +236,7 @@ gen     njobs = .
 replace njobs = 1	if  employed==1
 replace njobs = 2	if  employed==1 & p50==2
 replace njobs = 3	if  employed==1 & p50==2 & p51c>0 & p51c<.
+
 
 
 qui {
@@ -272,7 +384,7 @@ label variable analf "Condición de analfabetismo"
 label variable condact "Condición de actividad (agregada)"
 label variable condact1 "Condición de actividad (desagregada)"
 label variable grupo1 "Grupo de ocupación (nivel 1)"
-label variable rama1 "Rama de actividad (nivel 1)"
+
 * Consolidated and improved value labels
 
 label define yesno 1 "Sí" 2 "No", modify
