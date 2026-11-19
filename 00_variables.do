@@ -25,6 +25,8 @@ svyset survey_psu [pweight=fexp],                  ///
     vce(linearized)                               ///
     singleunit(certainty)
 
+svydescribe
+
 *** 0. Variable checks
 sum p63 p66 p68b p69 p71b p72b p73b p74b ingrl ingpc
 recode ingrl  -1 999999 9999999  = .
