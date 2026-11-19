@@ -24,8 +24,7 @@ svyset survey_psu [pweight=fexp],                  ///
     strata(survey_strata)                         ///
     vce(linearized)                               ///
     singleunit(certainty)
-
-svydescribe
+*svydescribe
 
 *** 0. Variable checks
 sum p63 p66 p68b p69 p71b p72b p73b p74b ingrl ingpc
@@ -282,7 +281,7 @@ label variable log_hourly_earnings "Log hourly labor earnings"
 
 
 
-
+/*
 qui {
 label variable i01 "Provincia"
 label variable i02 "Identificador de Cantón"
@@ -637,4 +636,5 @@ replace skill_match_1 = 3 if (aeduc > mean_high) & aeduc!=. & mean_aeduc!=. & oc
 replace skill_match_2 = 3 if (aeduc > qhigh_aeduc) & aeduc!=. & mean_aeduc!=. & occ_agg!=.
  
 label define skill_match 1 "Under Educated"  2 "Match" 3 "Over Educated", modify
-label values skill_match_1 skill_match_2 skill_match
+label values skill_match_1 skill_match_2 skill_match*/
+
