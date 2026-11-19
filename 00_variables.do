@@ -16,6 +16,15 @@ global graficos "C:/Users/andre/Documents/Consultoria/Desplazamiento JDC 2026/3.
 *** Load Data
 use "$data/0_enemdu2018_2025.dta"
 
+*** Survey design
+egen survey_strata = group(year estrato)
+egen survey_psu    = group(year upm)
+
+svyset survey_psu [pweight=fexp],                  ///
+    strata(survey_strata)                         ///
+    vce(linearized)                               ///
+    singleunit(certainty)
+
 *** 0. Variable checks
 sum p63 p66 p68b p69 p71b p72b p73b p74b ingrl ingpc
 recode ingrl  -1 999999 9999999  = .
@@ -171,7 +180,7 @@ label variable older_adults_hh "Number of adults aged 65+ in household"
 // 1.2 Labor market
 * Working-age
 gen 	pet = 0 
-replace pet = 1 if condact > 0 
+replace pet = 1 if condact > 0 & condact!=.
 lab var pet "Working-age population 15+"
 
 * Labor force
@@ -226,8 +235,8 @@ lab val infsec infsec
 	*replace informal_e = 1 if informal_s  ==2 & job_status ==3 /*Ningun self-employment sin RUC puede ser formal*/
 
 * Economic sector
-recode rama1 (1/2 =1) (3/6=2) (7/21=3) (22=.) if employed==1, gen(empsector)
-*PREGUNTAR ANITA<--recode rama1 (1 =1) (2/6=2) (7/21=3) (22=.) if employed==1, gen(empsector)
+*recode rama1 (1/2 =1) (3/6=2) (7/21=3) (22=.) if employed==1, gen(empsector)
+recode rama1 (1 =1) (2/6=2) (7/21=3) (22=.) if employed==1, gen(empsector)
 label def empsector ///
 1 "agriculture"   ///
 2 "industry" ///
@@ -235,8 +244,8 @@ label def empsector ///
 label values empsector empsector
 
 * Grouped industry
-recode rama1 (1/2 =1)(7=2)(3=3)(6=4)(4/5 8/21=5) if employed==1, gen(industry)
-*PREGUNTAR ANITA<--recode rama1 (1 =1)(7=2)(2/3=3)(6=4)(4/5 8/21=5) if employed==1, gen(industry)
+*recode rama1 (1/2 =1)(7=2)(3=3)(6=4)(4/5 8/21=5) if employed==1, gen(industry)
+recode rama1 (1 =1)(7=2)(2/3=3)(6=4)(4/5 8/21=5) if employed==1, gen(industry)
 label def ind ///
 1 "agriculture" ///
 2 "trade" ///
@@ -250,6 +259,25 @@ gen     njobs = .
 replace njobs = 1	if  employed==1
 replace njobs = 2	if  employed==1 & p50==2
 replace njobs = 3	if  employed==1 & p50==2 & p51c>0 & p51c<.
+
+* Weekly hours worked
+* p24 reports total hours worked during the previous week. Value 999 means no information.
+gen weekly_hours = p24 if employed==1 & inrange(p24,0,998)
+label variable weekly_hours "Weekly hours worked"
+*egen horas=rsum( p51a p51b p51c) if employed==1 & p51a>=0 & p51a<. & p51b>=0 & p51b<. & p51c>=0 & p51c<.
+
+* Earnings including reported zeros
+gen monthly_earnings = ingrl if employed==1 & ingrl >= 0 & ingrl < 999999
+label variable monthly_earnings "Monthly labor earning including zeros"
+
+*Hourly labor earnings
+gen hourly_earnings = monthly_earnings/(weekly_hours*(52/12))    ///
+    if monthly_earnings > 0 & weekly_hours > 0
+gen log_hourly_earnings = ln(hourly_earnings)          ///
+    if hourly_earnings > 0
+label variable hourly_earnings "Hourly labor earnings"
+label variable log_hourly_earnings "Log hourly labor earnings"
+
 
 
 
