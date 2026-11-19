@@ -78,7 +78,7 @@ label variable education_level "Educational attainment"
 label define education_level                                 ///
     0 "No schooling or literacy center"                    ///
     1 "Basic education"                                    ///
-    2 "Secondary education or baccalaureate"               ///
+    2 "Secondary education"               ///
     3 "Higher education", replace
 label values education_level education_level
 
@@ -151,8 +151,22 @@ label define nac                                  ///
     4 "Other foreign-born", replace
 label values nac nac
 
-tab year nac
-tab year nac [iw=fexp]
+*//Household composition
+* Household size
+bysort year id_hogar: egen household_size = count(p01)
+label variable household_size "Household size"
+
+* Number of children under age 15
+gen child_member = inrange(p03,0,14) if p03 < 99
+bysort year id_hogar: egen children_hh = total(child_member)
+drop child_member
+label variable children_hh "Number of children under age 15 in household"
+
+* Number of adults aged 65 or older
+gen older_member = inrange(p03,65,98) if p03 < 99
+bysort year id_hogar: egen older_adults_hh = total(older_member)
+drop older_member
+label variable older_adults_hh "Number of adults aged 65+ in household"
 
 // 1.2 Labor market
 * Working-age
